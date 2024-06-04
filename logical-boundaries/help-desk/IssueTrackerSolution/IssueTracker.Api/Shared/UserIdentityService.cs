@@ -30,13 +30,12 @@ public class UserIdentityService(IHttpContextAccessor httpContextAccessor, IDocu
         {
             return user;
         }
-
-
     }
 }
 
 public class ChaosException(string message) : Exception(message)
 {
+
 }
 
 public record UserInformation(Guid Id, string Sub);
