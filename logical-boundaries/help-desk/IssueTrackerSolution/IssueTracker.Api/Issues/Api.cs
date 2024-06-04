@@ -1,21 +1,25 @@
 ﻿using IssueTracker.Api.Catalog;
+using IssueTracker.Api.Issues.ReadModels;
 using IssueTracker.Api.Shared;
 using Marten;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
 using System.Text.Json.Serialization;
+using Wolverine;
 
 namespace IssueTracker.Api.Issues;
 [ApiExplorerSettings(GroupName = "Issues")]
-public class Api(UserIdentityService userIdentityService, IDocumentSession session) : ControllerBase
+public class Api(UserIdentityService userIdentityService, IDocumentSession session, IMessageBus bus) : ControllerBase
 {
     // POST /catalog/{id}/issues
     [HttpPost("/catalog/{catalogItemId:guid}/issues")]
     [SwaggerOperation(Tags = ["Issues", "Software Catalog"])]
     [Authorize]
-    public async Task<ActionResult<UserIssueResponse>> AddAnIssueAsync(Guid catalogItemId, [FromBody] UserCreateIssueRequestModel request, CancellationToken token)
+    public async Task<ActionResult<UserIssueResponse>> AddAnIssueAsync(
+        Guid catalogItemId, [FromBody] UserCreateIssueRequestModel request, CancellationToken token)
     {
+
         var software = await session.Query<CatalogItem>()
             .Where(c => c.Id == catalogItemId)
             .Select(c => new IssueSoftwareEmbeddedResponse { Id = c.Id, Title = c.Title, Description = c.Description })
@@ -38,9 +42,13 @@ public class Api(UserIdentityService userIdentityService, IDocumentSession sessi
             Software = software,
 
         };
-
-        session.Store<UserIssue>(entity);
-        await session.SaveChangesAsync(token);
+        // What was this doing? Storing the issue in a database. Does that need to be a part of the transaction?
+        // Does that need to happen before we send the response? 
+        //session.Store<UserIssue>(entity);
+        //await session.SaveChangesAsync(token);
+        // var x = await bus.InvokeAsync(someinstance) -- this is for a pub/sub - you expect exactly one handler to handle this and return you something. It is blocking
+        // bus.PublishAsync -- an event. Just letting you know. 
+        await bus.SendAsync(new AddUserIssue(entity.Id, catalogItemId, userInfo.Id, request.Description, request.Impact));
 
         var response = new UserIssueResponse
         {
@@ -63,10 +71,24 @@ public class Api(UserIdentityService userIdentityService, IDocumentSession sessi
                     Rel = "user",
                     Href = entity.User
                 }
-            ]
+                ]
         };
 
         return Ok(response);
+    }
+
+    [HttpGet("/issues/{issueId:guid}")]
+    public async Task<ActionResult> GetIssueByIdAsync(Guid issueId, CancellationToken token)
+    {
+        var issue = await session.Events.AggregateStreamAsync<UserSoftwareIssue>(issueId, token: token);
+        if (issue is null)
+        {
+            return NotFound();
+        }
+        else
+        {
+            return Ok(issue);
+        }
     }
 
     //[HttpGet("/catalog/{catalogItemId:guid}/issues/{issueId:guid}/support")]
@@ -82,8 +104,10 @@ public class Api(UserIdentityService userIdentityService, IDocumentSession sessi
     //}
 }
 
-public record UserCreateIssueRequestModel(string Description);
+public enum IssueImpact { NoneSpecified, Question, Inconvenience, WorkStoppage, ProductionStoppage }
+public record UserCreateIssueRequestModel(string Description, IssueImpact Impact);
 
+public record AddUserIssue(Guid Id, Guid SoftwareId, Guid UserId, string Description, IssueImpact Impact);
 public record UserIssueResponse
 {
     public Guid Id { get; set; } // the created issue ID
@@ -102,13 +126,16 @@ public record Link
 {
     public string Rel { get; set; } = string.Empty;
     public string Href { get; set; } = string.Empty;
+
 }
 
 public class EmbbeddedResource<T> where T : new()
 {
+
     public T Data { get; set; } = new();
     [JsonPropertyName("_links")]
     public IList<Link> Links { get; set; } = [];
+
 }
 
 public class UserIssue
@@ -118,6 +145,7 @@ public class UserIssue
     public IssueSoftwareEmbeddedResponse? Software { get; set; } // the id of the software, or the route
     public IssueStatusType Status { get; set; } = IssueStatusType.Submitted;
     public DateTimeOffset Created { get; set; }
+
 }
 public record IssueSoftwareEmbeddedResponse
 {
@@ -126,7 +154,8 @@ public record IssueSoftwareEmbeddedResponse
     public string Description { get; set; } = string.Empty;
 }
 
-public enum IssueStatusType { Submitted }
+public enum IssueStatusType { Submitted, SubmittedAsHighPriority }
+
 
 public record SupportInfo
 {
