@@ -6,10 +6,10 @@ namespace IssueTracker.Api.Catalog;
 
 public class ShouldBeCreatorToAlterCatalogItemRequirement : IAuthorizationRequirement
 {
-
 }
 
-public class ShouldBeCreatorOfCatalogItemRequirementHandler(IQuerySession session, IHttpContextAccessor httpContext, UserIdentityService userIdentityService) : AuthorizationHandler<ShouldBeCreatorToAlterCatalogItemRequirement>
+public class
+    ShouldBeCreatorOfCatalogItemRequirementHandler(IQuerySession session, IHttpContextAccessor httpContext, UserIdentityService userIdentityService) : AuthorizationHandler<ShouldBeCreatorToAlterCatalogItemRequirement>
 {
     protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, ShouldBeCreatorToAlterCatalogItemRequirement requirement)
     {
@@ -32,12 +32,16 @@ public class ShouldBeCreatorOfCatalogItemRequirementHandler(IQuerySession sessio
                     if (isUsers)
                     {
                         context.Succeed(requirement);
+
                     }
                     else
                     {
+
                         return;
                     }
+
                 }
+
             }
             else
             {
@@ -48,5 +52,6 @@ public class ShouldBeCreatorOfCatalogItemRequirementHandler(IQuerySession sessio
         {
             context.Succeed(requirement);
         }
+
     }
 }

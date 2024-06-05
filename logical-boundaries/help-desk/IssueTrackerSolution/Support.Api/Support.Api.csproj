@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\HelpDeskSharedMessages\HelpDeskSharedMessages.csproj" />
     <ProjectReference Include="..\IssueTracker.Api\IssueTracker.Api.csproj" />
   </ItemGroup>
 

@@ -21,7 +21,6 @@ public class Api(IDocumentSession session) : ControllerBase
                 Id = user.Id,
 
             };
-
             return Ok(response);
         }
     }

@@ -12,6 +12,8 @@ namespace IssueTracker.Api.Issues;
 [ApiExplorerSettings(GroupName = "Issues")]
 public class Api(UserIdentityService userIdentityService, IDocumentSession session, IMessageBus bus) : ControllerBase
 {
+
+
     // POST /catalog/{id}/issues
     [HttpPost("/catalog/{catalogItemId:guid}/issues")]
     [SwaggerOperation(Tags = ["Issues", "Software Catalog"])]
@@ -24,12 +26,10 @@ public class Api(UserIdentityService userIdentityService, IDocumentSession sessi
             .Where(c => c.Id == catalogItemId)
             .Select(c => new IssueSoftwareEmbeddedResponse { Id = c.Id, Title = c.Title, Description = c.Description })
             .SingleOrDefaultAsync(token);
-
         if (software is null)
         {
             return NotFound("No Software With That Id In The Catalog.");
         }
-
         var userInfo = await userIdentityService.GetUserInformationAsync();
         var userUrl = Url.RouteUrl("users#get-by-id", new { id = userInfo.Id }) ?? throw new ChaosException("Need a User Url");
 
@@ -49,7 +49,6 @@ public class Api(UserIdentityService userIdentityService, IDocumentSession sessi
         // var x = await bus.InvokeAsync(someinstance) -- this is for a pub/sub - you expect exactly one handler to handle this and return you something. It is blocking
         // bus.PublishAsync -- an event. Just letting you know. 
         await bus.SendAsync(new AddUserIssue(entity.Id, catalogItemId, userInfo.Id, request.Description, request.Impact));
-
         var response = new UserIssueResponse
         {
             Id = entity.Id,
@@ -73,7 +72,6 @@ public class Api(UserIdentityService userIdentityService, IDocumentSession sessi
                 }
                 ]
         };
-
         return Ok(response);
     }
 

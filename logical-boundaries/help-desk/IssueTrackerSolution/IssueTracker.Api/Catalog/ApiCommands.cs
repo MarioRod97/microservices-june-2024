@@ -14,8 +14,10 @@ namespace IssueTracker.Api.Catalog;
 
 [ApiExplorerSettings(GroupName = "Software Catalog")]
 
+
 public class ApiCommands(IValidator<CreateCatalogItemRequest> validator, IDocumentSession session) : ControllerBase
 {
+
     /// <summary>
     /// Add an Item to the Software Catalog
     /// </summary>
@@ -29,13 +31,13 @@ public class ApiCommands(IValidator<CreateCatalogItemRequest> validator, IDocume
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [SwaggerOperation(Tags = ["Software Catalog"], OperationId = "AddCatalog")]
     public async Task<ActionResult<CatalogItemResponse>> AddACatalogItemAsync(
-        [FromBody] CreateCatalogItemRequest request,
-        [FromServices] UserIdentityService userIdentityService,
-        CancellationToken token)
+       [FromBody] CreateCatalogItemRequest request,
+      [FromServices] UserIdentityService userIdentityService,
+       CancellationToken token)
     {
         var userId = await userIdentityService.GetUserSubAsync();
-        var validation = await validator.ValidateAsync(request, token);
 
+        var validation = await validator.ValidateAsync(request, token);
         if (!validation.IsValid)
         {
             return this.CreateProblemDetailsForModelValidation("Cannot Add Catalog Item", validation.ToDictionary());
@@ -43,19 +45,20 @@ public class ApiCommands(IValidator<CreateCatalogItemRequest> validator, IDocume
 
         var entityToSave = request.MapToCatalogItem(userId);
 
+
         session.Store(entityToSave);
         await session.SaveChangesAsync(token); // Do the actual work!
 
-        var response = entityToSave.MapToResponse();
 
+        var response = entityToSave.MapToResponse();
         return CreatedAtRoute("catalog#get-by-id", new { id = response.Id }, response);
         // part of this collection. 
     }
-
     [HttpDelete("{id:guid}")]
     [SwaggerOperation(Tags = ["Software Catalog"])]
     public async Task<ActionResult> RemoveCatalogItemAsync(Guid id, CancellationToken token)
     {
+
         // see if the thing exists.
         var storedItem = await session.LoadAsync<CatalogItem>(id, token);
         if (storedItem != null)
@@ -66,7 +69,6 @@ public class ApiCommands(IValidator<CreateCatalogItemRequest> validator, IDocume
             session.Store(storedItem); // "Upsert"
             await session.SaveChangesAsync(token); // save it.
         }
-
         return NoContent();
     }
 
@@ -81,18 +83,18 @@ public class ApiCommands(IValidator<CreateCatalogItemRequest> validator, IDocume
         {
             return NotFound(); // or do an upsert?
         }
-
         // I'd also validate the id in the request matches the route id, but you do you.
         if (id != request.Id)
         {
             return BadRequest("Ids don't match");
         }
-
         item.Title = request.Title;
         item.Description = request.Description;
         session.Store(item);
         await session.SaveChangesAsync(token);
-
         return Ok();
+
     }
+
 }
+

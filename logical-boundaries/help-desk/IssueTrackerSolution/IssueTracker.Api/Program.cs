@@ -1,4 +1,5 @@
 using FluentValidation;
+using HelpDeskSharedMessages;
 using IssueTracker.Api.Catalog;
 using IssueTracker.Api.Issues.ReadModels;
 using IssueTracker.Api.Shared;
@@ -11,10 +12,15 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Wolverine;
+using Wolverine.Kafka;
 using Wolverine.Marten;
+
+
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.ApplyOaktonExtensions();
+
+
 
 builder.Services.AddReverseProxy().LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 // sets up the auth stuff to read from our environment specific config.
@@ -44,6 +50,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddFluentValidationRulesToSwagger();
 builder.Services.AddSwaggerGen(options =>
 {
+
+
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header with bearer token",
@@ -85,10 +93,16 @@ builder.Services.AddMarten(options =>
     options.Projections.Add<UserIssueProjection>(Marten.Events.Projections.ProjectionLifecycle.Inline);
 }).UseLightweightSessions().IntegrateWithWolverine().AddAsyncDaemon(Marten.Events.Daemon.Resiliency.DaemonMode.Solo);
 
+var kafkaConnectionString = builder.Configuration.GetValue<string>("kafka") ?? throw new Exception("Need a kafka broker");
 builder.Host.UseWolverine(opts =>
 {
+    opts.UseKafka(kafkaConnectionString); // more here later
+
     opts.Policies.AutoApplyTransactions();
+
+    opts.PublishMessage<HelpDeskIssueCreated>().ToKafkaTopic("help-desk.issue-created");
 });
+
 
 var app = builder.Build();
 
